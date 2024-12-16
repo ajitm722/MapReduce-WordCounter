@@ -30,6 +30,7 @@ func TestProcessFiles(t *testing.T) {
 		"orange": 1,
 		"banana": 3,
 	}
+	printResult(result)
 
 	for word, expectedCount := range expectedResult {
 		if count, found := result[word]; !found || count != expectedCount {

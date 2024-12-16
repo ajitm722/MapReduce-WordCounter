@@ -25,7 +25,7 @@ func main() {
 	// Parse command-line flags
 	flag.StringVar(&profileType, "profile", "", "type of profiling: cpu, mem, block, or trace")
 	flag.Parse()
-
+	fmt.Printf("Calculating each word ocurrence count..\n")
 	// Set maxWorkers to the number of CPUs available on the system
 	maxWorkers = runtime.NumCPU()
 
@@ -68,8 +68,8 @@ func main() {
 	}
 
 	// Print the final word count results
-	printResult(finalResult)
-	fmt.Printf("Processing took: %v\n", time.Since(start)) // Print elapsed time
+	// printResult(finalResult)
+	fmt.Printf("Processing took: %v\n Total words: %v\n", time.Since(start), len(finalResult)) // Print elapsed time
 }
 
 // stopProfiling stops the profiler if it was started.
@@ -86,10 +86,12 @@ func processFiles(files []string, maxWorkers int) (map[string]int, error) {
 	workQueue := make(chan string, maxWorkers)
 	reducerWG := new(sync.WaitGroup)
 	finalResult := make(map[string]int)
+	finalResultMutex := new(sync.Mutex)
 
 	// Start the reducer goroutine to aggregate intermediate results
-	reducer(reducerWG, finalResult, partialResults)
-
+	for i := 0; i < maxWorkers; i++ {
+		reducer(reducerWG, finalResult, partialResults, finalResultMutex)
+	}
 	// Start worker goroutines to process files
 	for i := 0; i < maxWorkers; i++ {
 		processFile(workersWG, partialResults, workQueue)
@@ -150,14 +152,14 @@ func removePunctuation(word string) string {
 	// Use strings.Map to filter out punctuation characters
 	return strings.Map(func(r rune) rune {
 		// Keep the rune if it's not a punctuation character
-		if unicode.IsPunct(r) {
-			return -1 // Return -1 to remove the character
+		if unicode.IsLetter(r) {
+			return r
 		}
-		return r
+		return -1 // Return -1 to remove the character
 	}, word)
 }
 
-// printResult prints the final word count results in a tabular format.
+// // printResult prints the final word count results in a tabular format.
 func printResult(result map[string]int) {
 	fmt.Printf("%-10s%s\n", "Count", "Word")
 	fmt.Printf("%-10s%s\n", "-----", "----")
@@ -169,13 +171,15 @@ func printResult(result map[string]int) {
 
 // reducer aggregates the intermediate results from workers
 // into the final result map and exits when the input channel closes.
-func reducer(wg *sync.WaitGroup, finResult map[string]int, in <-chan map[string]int) {
+func reducer(wg *sync.WaitGroup, finResult map[string]int, in <-chan map[string]int, mutex *sync.Mutex) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for res := range in {
 			for k, v := range res {
+				mutex.Lock()
 				finResult[k] += v
+				mutex.Unlock()
 			}
 		}
 	}()
