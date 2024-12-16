@@ -115,49 +115,63 @@ func processFile(wg *sync.WaitGroup, result chan<- map[string]int, workQueue <-c
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var w string
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorf("Worker panicked: %v", r)
+			}
+		}()
+
 		for fn := range workQueue {
-			res := make(map[string]int)
+			res := make(map[string]int, 1000) // Preallocate map
 			r, err := os.Open(fn)
 			if err != nil {
-				log.Warn(err)
-				return
+				log.Warnf("Failed to open file %s: %v", fn, err)
+				continue
 			}
-			defer r.Close()
 
 			sc := bufio.NewScanner(r)
 			sc.Split(bufio.ScanWords)
 
+			buf := make([]byte, 1024*1024) // 1 MB buffer
+			sc.Buffer(buf, len(buf))
+
 			for sc.Scan() {
-				w = sc.Text()
+				w := strings.Map(func(r rune) rune {
+					if unicode.IsLetter(r) {
+						return unicode.ToLower(r)
+					}
+					return -1
+				}, sc.Text())
 
-				// Remove any punctuation using strings.Map
-				w = removePunctuation(w)
-
-				// Convert to lowercase for case-insensitive comparison
-				w = strings.ToLower(w)
-
-				// If the word is not empty, count it
 				if w != "" {
-					res[w] = res[w] + 1
+					res[w]++
 				}
 			}
-			result <- res
+
+			if err := sc.Err(); err != nil {
+				log.Warnf("Error reading file %s: %v", fn, err)
+			}
+			if err := r.Close(); err != nil {
+				log.Warnf("Error closing file %s: %v", fn, err)
+			}
+
+			result <- res                       // Send results to channel
+			log.Infof("Processed file: %s", fn) // Log progress
 		}
 	}()
 }
 
 // removePunctuation removes punctuation characters from the word
-func removePunctuation(word string) string {
-	// Use strings.Map to filter out punctuation characters
-	return strings.Map(func(r rune) rune {
-		// Keep the rune if it's not a punctuation character
-		if unicode.IsLetter(r) {
-			return r
-		}
-		return -1 // Return -1 to remove the character
-	}, word)
-}
+// func removePunctuation(word string) string {
+// 	// Use strings.Map to filter out punctuation characters
+// 	return strings.Map(func(r rune) rune {
+// 		// Keep the rune if it's not a punctuation character
+// 		if unicode.IsLetter(r) {
+// 			return r
+// 		}
+// 		return -1 // Return -1 to remove the character
+// 	}, word)
+// }
 
 // // printResult prints the final word count results in a tabular format.
 func printResult(result map[string]int) {
