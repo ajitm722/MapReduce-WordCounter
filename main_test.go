@@ -7,17 +7,23 @@ import (
 )
 
 func TestProcessFiles(t *testing.T) {
-	// Prepare a temporary file to test
-	testFile := "testfile.txt"
-	content := "apple orange! banana? apple. banana apple: apple. banana..."
-	err := os.WriteFile(testFile, []byte(content), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-	defer os.Remove(testFile)
+	// Prepare temporary files to test
+	testFile1 := "testfile1.txt"
+	testFile2 := "testfile2.txt"
 
+	content := "apple orange! banana? apple.\n banana apple: apple. banana..."
+
+	if err := os.WriteFile(testFile1, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file1: %v", err)
+	}
+	defer os.Remove(testFile1)
+
+	if err := os.WriteFile(testFile2, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file2: %v", err)
+	}
+	defer os.Remove(testFile2)
 	// Process the files
-	files := []string{testFile}
+	files := []string{testFile1, testFile2}
 	result, err := processFiles(files, runtime.NumCPU())
 
 	if err != nil {
@@ -26,9 +32,9 @@ func TestProcessFiles(t *testing.T) {
 
 	// Validate the result
 	expectedResult := map[string]int{
-		"apple":  4,
-		"orange": 1,
-		"banana": 3,
+		"apple":  8,
+		"orange": 2,
+		"banana": 6,
 	}
 	printResult(result)
 

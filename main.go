@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"runtime/trace"
@@ -122,36 +123,44 @@ func processFile(wg *sync.WaitGroup, result chan<- map[string]int, workQueue <-c
 		}()
 
 		for fn := range workQueue {
-			res := make(map[string]int, 1000) // Preallocate map
-			r, err := os.Open(fn)
+			res := make(map[string]int)
+			file, err := os.Open(fn)
 			if err != nil {
 				log.Warnf("Failed to open file %s: %v", fn, err)
 				continue
 			}
+			defer file.Close()
 
-			sc := bufio.NewScanner(r)
-			sc.Split(bufio.ScanWords)
-
+			reader := bufio.NewReader(file)
 			buf := make([]byte, 1024*1024) // 1 MB buffer
-			sc.Buffer(buf, len(buf))
 
-			for sc.Scan() {
-				w := strings.Map(func(r rune) rune {
-					if unicode.IsLetter(r) {
-						return unicode.ToLower(r)
+			for {
+				n, err := reader.Read(buf)
+				if n > 0 {
+					// Convert the chunk to a string and split into words
+					words := strings.FieldsFunc(string(buf[:n]), func(r rune) bool {
+						// Split by any non-letter characters
+						return !unicode.IsLetter(r)
+					})
+
+					for _, word := range words {
+						// Convert to lowercase for case-insensitive comparison
+						word = strings.ToLower(word)
+						if word != "" {
+							res[word]++
+						}
 					}
-					return -1
-				}, sc.Text())
-
-				if w != "" {
-					res[w]++
+				}
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					log.Warnf("Error reading file %s: %v", fn, err)
+					break
 				}
 			}
 
-			if err := sc.Err(); err != nil {
-				log.Warnf("Error reading file %s: %v", fn, err)
-			}
-			if err := r.Close(); err != nil {
+			if err := file.Close(); err != nil {
 				log.Warnf("Error closing file %s: %v", fn, err)
 			}
 
