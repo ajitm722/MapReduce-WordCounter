@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"runtime/trace"
 	"strings"
 	"sync"
@@ -14,8 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const defaultWorkers = 6 // Default number of workers if not specified via the flag
-
 var (
 	profileType string // Flag to specify the type of profiling (cpu/mem/block/trace)
 	maxWorkers  int    // Number of workers for processing files
@@ -24,8 +23,10 @@ var (
 func main() {
 	// Parse command-line flags
 	flag.StringVar(&profileType, "profile", "", "type of profiling: cpu, mem, block, or trace")
-	flag.IntVar(&maxWorkers, "w", defaultWorkers, "number of workers for processing input")
 	flag.Parse()
+
+	// Set maxWorkers to the number of CPUs available on the system
+	maxWorkers = runtime.NumCPU()
 
 	// Start profiling based on the profileType flag
 	var profiler interface{ Stop() }
