@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/pkg/profile"
 	log "github.com/sirupsen/logrus"
@@ -29,28 +30,6 @@ func main() {
 	maxWorkers = runtime.NumCPU()
 
 	// Start profiling based on the profileType flag
-	profiler := setupProfiling(profileType)
-	defer stopProfiling(profiler)
-
-	// Process files
-	start := time.Now()
-	if len(flag.Args()) == 0 {
-		log.Error("No files to process") // Log an error and exit if no files are passed
-		return
-	}
-
-	finalResult, err := processFiles(flag.Args(), maxWorkers)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Print the final word count results
-	printResult(finalResult)
-	fmt.Printf("Processing took: %v\n", time.Since(start)) // Print elapsed time
-}
-
-// setupProfiling sets up profiling based on the profileType.
-func setupProfiling(profileType string) interface{ Stop() } {
 	var profiler interface{ Stop() }
 	switch profileType {
 	case "cpu":
@@ -74,13 +53,29 @@ func setupProfiling(profileType string) interface{ Stop() } {
 			log.Warn("Invalid profile type. Valid options are: cpu, mem, block, trace")
 		}
 	}
-	return profiler
+	defer stopProfiling(profiler)
+
+	// Process files
+	start := time.Now()
+	if len(flag.Args()) == 0 {
+		log.Error("No files to process") // Log an error and exit if no files are passed
+		return
+	}
+
+	finalResult, err := processFiles(flag.Args(), maxWorkers)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Print the final word count results
+	printResult(finalResult)
+	fmt.Printf("Processing took: %v\n", time.Since(start)) // Print elapsed time
 }
 
 // stopProfiling stops the profiler if it was started.
 func stopProfiling(profiler interface{ Stop() }) {
 	if profiler != nil {
-		defer profiler.Stop() // Ensure profiler is stopped when the program exits
+		profiler.Stop() // Ensure profiler is stopped when the program exits
 	}
 }
 
@@ -132,12 +127,34 @@ func processFile(wg *sync.WaitGroup, result chan<- map[string]int, workQueue <-c
 			sc.Split(bufio.ScanWords)
 
 			for sc.Scan() {
-				w = strings.ToLower(sc.Text())
-				res[w] = res[w] + 1
+				w = sc.Text()
+
+				// Remove any punctuation using strings.Map
+				w = removePunctuation(w)
+
+				// Convert to lowercase for case-insensitive comparison
+				w = strings.ToLower(w)
+
+				// If the word is not empty, count it
+				if w != "" {
+					res[w] = res[w] + 1
+				}
 			}
 			result <- res
 		}
 	}()
+}
+
+// removePunctuation removes punctuation characters from the word
+func removePunctuation(word string) string {
+	// Use strings.Map to filter out punctuation characters
+	return strings.Map(func(r rune) rune {
+		// Keep the rune if it's not a punctuation character
+		if unicode.IsPunct(r) {
+			return -1 // Return -1 to remove the character
+		}
+		return r
+	}, word)
 }
 
 // printResult prints the final word count results in a tabular format.

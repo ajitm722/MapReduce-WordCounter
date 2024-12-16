@@ -9,7 +9,7 @@ import (
 func TestProcessFiles(t *testing.T) {
 	// Prepare a temporary file to test
 	testFile := "testfile.txt"
-	content := "apple orange banana apple banana apple apple banana"
+	content := "apple orange! banana? apple. banana apple: apple. banana..."
 	err := os.WriteFile(testFile, []byte(content), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
