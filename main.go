@@ -170,18 +170,6 @@ func processFile(wg *sync.WaitGroup, result chan<- map[string]int, workQueue <-c
 	}()
 }
 
-// removePunctuation removes punctuation characters from the word
-// func removePunctuation(word string) string {
-// 	// Use strings.Map to filter out punctuation characters
-// 	return strings.Map(func(r rune) rune {
-// 		// Keep the rune if it's not a punctuation character
-// 		if unicode.IsLetter(r) {
-// 			return r
-// 		}
-// 		return -1 // Return -1 to remove the character
-// 	}, word)
-// }
-
 // // printResult prints the final word count results in a tabular format.
 func printResult(result map[string]int) {
 	fmt.Printf("%-10s%s\n", "Count", "Word")
