@@ -170,7 +170,7 @@ func processFile(wg *sync.WaitGroup, result chan<- map[string]int, workQueue <-c
 	}()
 }
 
-// // printResult prints the final word count results in a tabular format.
+// printResult prints the final word count results in a tabular format.
 func printResult(result map[string]int) {
 	fmt.Printf("%-10s%s\n", "Count", "Word")
 	fmt.Printf("%-10s%s\n", "-----", "----")
