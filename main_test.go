@@ -10,7 +10,9 @@ func TestProcessFiles(t *testing.T) {
 	// Prepare temporary files to test
 	testFile1 := "testfile1.txt"
 	testFile2 := "testfile2.txt"
+        // These files will be removed later
 
+	// Content to be stored in both the files
 	content := "apple orange! banana? apple.\n banana apple: apple. banana..."
 
 	if err := os.WriteFile(testFile1, []byte(content), 0644); err != nil {
